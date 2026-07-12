@@ -1,0 +1,20 @@
+# Uploads (user files, not code)
+uploads/
+!uploads/.gitkeep
+
+# Database (contains sensitive data)
+database.sql
+
+# Docker volumes
+db_data/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

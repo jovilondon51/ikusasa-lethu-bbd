@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ikusasa-web
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./uploads:/var/www/html/uploads
+    depends_on:
+      - db
+    networks:
+      - ikusasa-network
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    container_name: ikusasa-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass123
+      MYSQL_DATABASE: ikusasa_bbd
+      MYSQL_USER: bbd_user
+      MYSQL_PASSWORD: bbd_pass123
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database.sql:/docker-entrypoint-initdb.d/database.sql:ro
+    networks:
+      - ikusasa-network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: ikusasa-phpmyadmin
+    restart: always
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: bbd_user
+      PMA_PASSWORD: bbd_pass123
+    depends_on:
+      - db
+    networks:
+      - ikusasa-network
+
+volumes:
+  db_data:
+
+networks:
+  ikusasa-network:
+    driver: bridge
