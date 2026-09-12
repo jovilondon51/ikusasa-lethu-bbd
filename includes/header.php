@@ -16,6 +16,11 @@ $basePath = (strpos($scriptPath, '/admin/') !== false || strpos($scriptPath, '/l
 </head>
 <body data-theme="light">
     <?php if ($currentUser): ?>
+    <div class="mobile-topbar">
+        <button class="menu-toggle" id="menuToggle" aria-label="Open menu"><i class="fas fa-bars"></i></button>
+        <span class="mobile-topbar-title"><i class="fas fa-graduation-cap"></i> Ikusasa Lethu</span>
+    </div>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <nav class="sidebar">
         <div class="sidebar-header">
             <h2><i class="fas fa-graduation-cap"></i> Ikusasa Lethu</h2>
@@ -54,5 +59,7 @@ $basePath = (strpos($scriptPath, '/admin/') !== false || strpos($scriptPath, '/l
     </nav>
     <main class="main-content">
     <?php else: ?>
+    <main class="auth-main">
+    <?php endif; ?>
     <main class="auth-main">
     <?php endif; ?>
