@@ -61,5 +61,3 @@ $basePath = (strpos($scriptPath, '/admin/') !== false || strpos($scriptPath, '/l
     <?php else: ?>
     <main class="auth-main">
     <?php endif; ?>
-    <main class="auth-main">
-    <?php endif; ?>
