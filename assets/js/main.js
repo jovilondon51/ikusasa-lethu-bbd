@@ -1,4 +1,25 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Mobile sidebar toggle
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+    function openSidebar() {
+        sidebar?.classList.add('open');
+        sidebarOverlay?.classList.add('active');
+    }
+
+    function closeSidebar() {
+        sidebar?.classList.remove('open');
+        sidebarOverlay?.classList.remove('active');
+    }
+
+    menuToggle?.addEventListener('click', openSidebar);
+    sidebarOverlay?.addEventListener('click', closeSidebar);
+    document.querySelectorAll('.nav-links a').forEach(link => {
+        link.addEventListener('click', closeSidebar);
+    });
+
     // Theme Toggle
     const themeToggle = document.getElementById('themeToggle');
     const body = document.body;
