@@ -78,11 +78,11 @@ include '../includes/header.php';
         <a href="?month=<?php echo $nextMonth; ?>&learner=<?php echo $learnerId; ?>" class="btn btn-sm btn-primary">Next <i class="fas fa-chevron-right"></i></a>
     </div>
     
-    <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:0.5rem; text-align:center; font-weight:600; margin-bottom:0.5rem; color:var(--text-muted);">
-        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+    <div class="calendar-grid" style="display:grid; grid-template-columns:repeat(7, 1fr); gap:0.5rem; text-align:center; font-weight:600; margin-bottom:0.5rem; color:var(--text-muted);">
+        <div class="calendar-weekday">Mon</div><div class="calendar-weekday">Tue</div><div class="calendar-weekday">Wed</div><div class="calendar-weekday">Thu</div><div class="calendar-weekday">Fri</div><div class="calendar-weekday">Sat</div><div class="calendar-weekday">Sun</div>
     </div>
     
-    <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:0.5rem;">
+    <div class="calendar-grid" style="display:grid; grid-template-columns:repeat(7, 1fr); gap:0.5rem;">
         <?php 
         // Empty cells before first day
         for ($i = 1; $i < $firstDay; $i++) {
@@ -93,7 +93,7 @@ include '../includes/header.php';
             $hasData = isset($attendanceMap[$day]);
             $dayAttendance = $attendanceMap[$day] ?? [];
         ?>
-        <div style="min-height:80px; border:1px solid var(--border); border-radius:8px; padding:0.5rem; background:var(--card-bg);">
+        <div class="calendar-cell" style="min-height:80px; border:1px solid var(--border); border-radius:8px; padding:0.5rem; background:var(--card-bg);">
             <div style="font-weight:600; margin-bottom:0.25rem; <?php echo date('j') == $day && date('Y-m') == $month ? 'color:var(--primary);' : ''; ?>">
                 <?php echo $day; ?>
             </div>
