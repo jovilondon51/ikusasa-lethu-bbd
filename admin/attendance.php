@@ -39,7 +39,7 @@ include '../includes/header.php';
     </div>
     
     <form method="GET" style="margin-bottom:1.5rem;">
-        <div style="display:flex; gap:1rem; align-items:center;">
+        <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
             <input type="date" name="date" value="<?php echo $date; ?>" class="form-input" style="width:auto;">
             <button type="submit" class="btn btn-primary"><i class="fas fa-calendar"></i> Select Date</button>
         </div>
