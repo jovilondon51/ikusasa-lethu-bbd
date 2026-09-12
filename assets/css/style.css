@@ -164,6 +164,12 @@ body {
 .stat-info p { color: var(--text-muted); font-size: 0.9rem; }
 
 /* Tables */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .data-table {
     width: 100%;
     border-collapse: collapse;
@@ -418,12 +424,72 @@ body {
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--primary); background: rgba(59,130,246,0.1); }
 
+/* Mobile topbar (hidden on desktop) */
+.mobile-topbar {
+    display: none;
+    align-items: center;
+    gap: 1rem;
+    background: var(--sidebar-bg);
+    color: #fff;
+    padding: 1rem 1.25rem;
+    position: sticky;
+    top: 0;
+    z-index: 90;
+}
+
+.mobile-topbar-title { font-weight: 600; }
+.mobile-topbar-title i { color: var(--primary); margin-right: 0.4rem; }
+
+.menu-toggle {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: #fff;
+    font-size: 1.1rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 99;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
+    .mobile-topbar { display: flex; }
     .sidebar { transform: translateX(-100%); }
     .sidebar.open { transform: translateX(0); }
-    .main-content { margin-left: 0; }
+    .sidebar-overlay.active { display: block; }
+    .main-content { margin-left: 0; padding: 1.25rem; }
     .stats-grid { grid-template-columns: 1fr; }
+
+    /* Let wide tables scroll sideways instead of squashing or breaking */
+    .data-table { min-width: 560px; }
+
+    .card-header { flex-wrap: wrap; gap: 0.75rem; }
+    .card-header form { flex-wrap: wrap; }
+    .auth-main { padding: 1rem; }
+    .login-box { padding: 1.75rem; }
+
+    /* Attendance calendar: smaller cells and text so 7 columns still fit */
+    .calendar-grid { gap: 0.3rem !important; }
+    .calendar-cell { min-height: 56px !important; padding: 0.35rem !important; font-size: 0.75rem; }
+    .calendar-weekday { font-size: 0.7rem; }
+}
+
+@media (max-width: 420px) {
+    .main-content { padding: 1rem; }
+    .card { padding: 1.1rem; }
+    .login-box { padding: 1.25rem; }
+    .stat-card { padding: 1.1rem; }
+    .stat-info h3 { font-size: 1.4rem; }
+    .card-title { font-size: 1.1rem; }
+    .mobile-topbar-title { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn { padding: 0.55rem 1rem; font-size: 0.85rem; }
 }
 
 @keyframes pulse {
