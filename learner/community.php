@@ -8,7 +8,7 @@ $communityMode = getSetting('community_mode');
 // Send message
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_message']) && $communityMode === 'everyone') {
     $stmt = $pdo->prepare("INSERT INTO community_messages (sender_id, sender_type, message, status) VALUES (?, 'learner', ?, 'pending')");
-    $stmt->execute([$learnerId, trim($_POST['message'])]);
+    $stmt->execute([$learnerId, requireText('message', 5000)]);
     header('Location: community.php');
     exit;
 }
@@ -38,6 +38,7 @@ include '../includes/header.php';
     
     <?php if ($communityMode === 'everyone'): ?>
     <form method="POST" action="" style="margin-bottom:1.5rem;">
+            <?php echo csrfField(); ?>
         <div class="form-group">
             <textarea name="message" class="form-textarea" placeholder="Write a message..." required></textarea>
         </div>

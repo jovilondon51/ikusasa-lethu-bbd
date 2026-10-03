@@ -87,7 +87,7 @@ include '../includes/header.php';
         <td>
             <div style="display:flex; align-items:center; gap:0.75rem;">
                 <?php if ($profilePic): ?>
-                    <img src="../<?php echo $profilePic; ?>" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">
+                    <img src="<?php echo h(fileUrl($profilePic)); ?>" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">
                 <?php else: ?>
                     <div style="width:32px; height:32px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; color:#fff; font-size:0.75rem; font-weight:700;">
                         <?php echo strtoupper(substr($log['learner_name'] ?? 'U', 0, 1)); ?>

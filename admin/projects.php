@@ -57,7 +57,7 @@ include '../includes/header.php';
     <div class="card-header">
         <div style="display:flex; align-items:center; gap:0.75rem;">
             <?php if ($project['profile_picture']): ?>
-                <img src="../<?php echo $project['profile_picture']; ?>" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
+                <img src="<?php echo h(fileUrl($project['profile_picture'])); ?>" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
             <?php else: ?>
                 <div style="width:40px; height:40px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700;">
                     <?php echo strtoupper(substr($project['learner_name'], 0, 1)); ?>
@@ -87,45 +87,18 @@ include '../includes/header.php';
     
     <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
         <?php if ($project['file_path']): ?>
-            <a href="../<?php echo $project['file_path']; ?>" target="_blank" class="btn btn-sm btn-primary" download>
+            <a href="<?php echo h(fileUrl($project['file_path'], true)); ?>" target="_blank" class="btn btn-sm btn-primary" download>
                 <i class="fas fa-download"></i> Download Original
             </a>
         <?php endif; ?>
     </div>
     
-    <?php if ($project['extracted_path'] && is_dir('../' . $project['extracted_path'])): ?>
-        <div style="margin-bottom:1rem; padding:1rem; background:var(--bg); border-radius:8px; border:1px solid var(--border);">
-            <h4 style="margin-bottom:0.75rem; font-size:0.95rem;"><i class="fas fa-folder-tree"></i> Extracted Files</h4>
-            <?php
-            if (!function_exists('listAdminFiles')) {
-            function listAdminFiles($dir, $webBase) {
-                $items = scandir($dir);
-                echo '<ul style="list-style:none; padding-left:1rem; margin:0;">';
-                foreach ($items as $item) {
-                    if ($item === '.' || $item === '..') continue;
-                    $fullPath = $dir . '/' . $item;
-                    $webPath = $webBase . '/' . $item;
-                    
-                    if (is_dir($fullPath)) {
-                        echo '<li style="margin:0.25rem 0;"><i class="fas fa-folder" style="color:var(--warning);"></i> <strong>' . htmlspecialchars($item) . '</strong>';
-                        listAdminFiles($fullPath, $webPath);
-                        echo '</li>';
-                    } else {
-                        $ext = strtolower(pathinfo($item, PATHINFO_EXTENSION));
-                        $icon = in_array($ext, ['html', 'css', 'js']) ? 'fa-file-code' : 'fa-file';
-                        echo '<li style="margin:0.25rem 0;"><i class="fas ' . $icon . '" style="color:var(--primary);"></i> ' . htmlspecialchars($item) . '</li>';
-                    }
-                }
-                echo '</ul>';
-            }
-            }
-            
-            $baseDir = '../' . $project['extracted_path'];
-            $webBase = $project['extracted_path'];
-            listAdminFiles($baseDir, $webBase);
-            ?>
-        </div>
-    <?php endif; ?>
+    <?php $files = projectFiles($project); if ($files): ?>
+        <details><summary>Project files</summary><ul>
+        <?php foreach ($files as $key): ?><li><?php echo h(substr($key, strlen($project['extracted_path']))); ?></li><?php endforeach; ?>
+        </ul></details>
+    <?php elseif ($project['extracted_path']): ?><p>Project files are unavailable. Restore the uploaded files before previewing.</p><?php endif; ?>
+
 </div>
 <?php endforeach; ?>
 

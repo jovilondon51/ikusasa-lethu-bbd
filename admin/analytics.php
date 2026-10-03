@@ -16,10 +16,11 @@ $attendanceStats = $pdo->query("SELECT
 // Content progress
 $progressStats = $pdo->query("SELECT 
     l.full_name,
-    COUNT(DISTINCT cp.content_id) as completed_content,
+    COUNT(DISTINCT lc.id) as completed_content,
     (SELECT COUNT(*) FROM learning_content WHERE status = 'active') as total_content
     FROM learners l
     LEFT JOIN content_progress cp ON l.id = cp.learner_id AND cp.completed = 1
+    LEFT JOIN learning_content lc ON lc.id = cp.content_id AND lc.status = 'active'
     WHERE l.status = 'active'
     GROUP BY l.id
     ORDER BY completed_content DESC

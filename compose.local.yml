@@ -1,0 +1,30 @@
+# Isolated local MySQL for development; never used by Render/Aiven.
+services:
+  web:
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: ikusasa_bbd
+      DB_USER: bbd_user
+      DB_PASS: ${LOCAL_DB_PASSWORD:?Set LOCAL_DB_PASSWORD}
+      DB_SSL_CA: ""
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LOCAL_DB_ROOT_PASSWORD:?Set LOCAL_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ikusasa_bbd
+      MYSQL_USER: bbd_user
+      MYSQL_PASSWORD: ${LOCAL_DB_PASSWORD:?Set LOCAL_DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  db_data:

@@ -6,10 +6,11 @@ $message = '';
 
 // Add admin
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $fullName = trim($_POST['full_name']);
-    $email = trim($_POST['email']);
-    $username = trim($_POST['username']);
-    $password = $_POST['password'];
+    $fullName = requireText('full_name', 150);
+    $email = requireText('email', 254);
+    $username = requireText('username', 100);
+    $password = $_POST['password'] ?? '';
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !is_string($password) || !validPassword($password)) failRequest(422, 'Enter a valid email and a password between 12 and 72 bytes.');
     
     $hash = password_hash($password, PASSWORD_DEFAULT);
     $stmt = $pdo->prepare("INSERT INTO admins (full_name, email, username, password_hash) VALUES (?, ?, ?, ?)");
@@ -17,22 +18,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmt->execute([$fullName, $email, $username, $hash]);
         $message = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Staff member added successfully!</div>';
     } catch (PDOException $e) {
+        if (($e->errorInfo[1] ?? null) !== 1062) throw $e;
         $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Error: Username or email already exists</div>';
     }
 }
 // Reset admin password
-if (isset($_GET['reset']) && is_numeric($_GET['reset'])) {
-    $newPass = 'BBD_' . bin2hex(random_bytes(4)); // e.g., BBD_a3f7b2d1
+if (isset($_POST['reset']) && is_numeric($_POST['reset'])) {
+    revokeAccount('admin', (int) $_POST['reset']);
+    $newPass = 'BBD_' . bin2hex(random_bytes(10)); // e.g., BBD_a3f7b2d1
     $hash = password_hash($newPass, PASSWORD_DEFAULT);
-    $pdo->prepare("UPDATE admins SET password_hash = ? WHERE id = ?")->execute([$hash, $_GET['reset']]);
+    $pdo->prepare("UPDATE admins SET password_hash = ? WHERE id = ?")->execute([$hash, $_POST['reset']]);
     $message = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Password reset! Temporary password: <strong>' . $newPass . '</strong> (Copy this now!)</div>';
 }
 
 // Delete admin (can't delete yourself)
-if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
-    if ($_GET['delete'] != $_SESSION['user_id']) {
+if (isset($_POST['delete']) && is_numeric($_POST['delete'])) {
+    if ($_POST['delete'] != $_SESSION['user_id']) {
+        revokeAccount('admin', (int) $_POST['delete']);
         $stmt = $pdo->prepare("DELETE FROM admins WHERE id = ?");
-        $stmt->execute([$_GET['delete']]);
+        $stmt->execute([$_POST['delete']]);
         header('Location: staff.php');
         exit;
     } else {
@@ -77,12 +81,12 @@ include '../includes/header.php';
     <?php if ($member['id'] == $_SESSION['user_id']): ?>
         <span class="badge badge-info">You</span>
     <?php else: ?>
-        <a href="?reset=<?php echo $member['id']; ?>" class="btn btn-sm btn-warning" data-confirm="Reset password for <?php echo htmlspecialchars($member['full_name']); ?>? A temporary password will be generated." title="Reset Password">
+        <form method="POST" style="display:inline;"><?php echo csrfField(); ?><input type="hidden" name="reset" value="<?php echo $member['id']; ?>"><button type="submit" class="btn btn-sm btn-warning" data-confirm="Reset password for <?php echo htmlspecialchars($member['full_name']); ?>? A temporary password will be generated." title="Reset Password">
             <i class="fas fa-key"></i>
-        </a>
-        <a href="?delete=<?php echo $member['id']; ?>" class="btn btn-sm btn-danger" data-confirm="Delete this staff member?">
+        </button></form>
+        <form method="POST" style="display:inline;"><?php echo csrfField(); ?><input type="hidden" name="delete" value="<?php echo $member['id']; ?>"><button type="submit" class="btn btn-sm btn-danger" data-confirm="Delete this staff member?">
             <i class="fas fa-trash"></i>
-        </a>
+        </button></form>
     <?php endif; ?>
 </td>
                 </tr>
@@ -102,6 +106,7 @@ include '../includes/header.php';
             <button class="modal-close" onclick="closeModal('addStaffModal')">&times;</button>
         </div>
         <form method="POST" action="">
+            <?php echo csrfField(); ?>
             <input type="hidden" name="action" value="add">
             <div class="form-group">
                 <label class="form-label">Full Name</label>
@@ -117,7 +122,7 @@ include '../includes/header.php';
             </div>
             <div class="form-group">
                 <label class="form-label">Password</label>
-                <input type="password" name="password" class="form-input" required>
+                <input minlength="12" maxlength="72" type="password" name="password" class="form-input" required>
             </div>
             <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Add Staff</button>
         </form>

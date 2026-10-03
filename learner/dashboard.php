@@ -9,11 +9,15 @@ $projects = $pdo->prepare("SELECT * FROM projects WHERE learner_id = ? ORDER BY 
 $projects->execute([$learnerId]);
 $projects = $projects->fetchAll();
 
+$projectTotal = $pdo->prepare('SELECT COUNT(*) FROM projects WHERE learner_id = ?');
+$projectTotal->execute([$learnerId]);
+$projectTotal = $projectTotal->fetchColumn();
+
 // Get content
 $content = $pdo->query("SELECT * FROM learning_content WHERE status = 'active' ORDER BY created_at DESC LIMIT 3")->fetchAll();
 
 // Get progress
-$progress = $pdo->prepare("SELECT COUNT(*) FROM content_progress WHERE learner_id = ? AND completed = 1");
+$progress = $pdo->prepare("SELECT COUNT(*) FROM content_progress cp JOIN learning_content lc ON lc.id = cp.content_id WHERE cp.learner_id = ? AND cp.completed = 1 AND lc.status = 'active'");
 $progress->execute([$learnerId]);
 $completed = $progress->fetchColumn();
 
@@ -38,7 +42,7 @@ include '../includes/header.php';
     <div class="stat-card">
         <div class="stat-icon blue"><i class="fas fa-code"></i></div>
         <div class="stat-info">
-            <h3><?php echo count($projects); ?></h3>
+            <h3><?php echo $projectTotal; ?></h3>
             <p>Your Projects</p>
         </div>
     </div>

@@ -7,16 +7,28 @@ $message = '';
 
 // Mark attendance
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_attendance'])) {
-    foreach ($_POST['attendance'] as $learnerId => $status) {
-        $stmt = $pdo->prepare("INSERT INTO attendance (learner_id, attendance_date, status, marked_by, notes) 
-                               VALUES (?, ?, ?, ?, ?) 
-                               ON DUPLICATE KEY UPDATE status = VALUES(status), marked_by = VALUES(marked_by), notes = VALUES(notes)");
-        $stmt->execute([$learnerId, $_POST['date'], $status, $_SESSION['user_id'], $_POST['notes'][$learnerId] ?? '']);
-    }
+    $selectedDate = $_POST['date'] ?? '';
+    if (!is_string($selectedDate) || !validDate($selectedDate) || $selectedDate > date('Y-m-d')) failRequest(422, 'Choose a valid attendance date that is not in the future.');
+    $submitted = $_POST['attendance'] ?? [];
+    $notes = $_POST['notes'] ?? [];
+    if (!is_array($submitted) || !is_array($notes)) failRequest(422, 'Invalid attendance form.');
+    $activeIds = array_map('intval', $pdo->query("SELECT id FROM learners WHERE status = 'active'")->fetchAll(PDO::FETCH_COLUMN));
+    $pdo->beginTransaction();
+    try {
+        foreach ($submitted as $learnerId => $status) {
+            $note = $notes[$learnerId] ?? '';
+            if (!ctype_digit((string) $learnerId) || !in_array((int) $learnerId, $activeIds, true) || !in_array($status, ['present', 'absent', 'late'], true) || !is_string($note) || strlen($note) > 1000) throw new InvalidArgumentException('Invalid attendance entry.');
+            $stmt = $pdo->prepare("INSERT INTO attendance (learner_id, attendance_date, status, marked_by, notes) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status), marked_by = VALUES(marked_by), notes = VALUES(notes)");
+            $stmt->execute([$learnerId, $selectedDate, $status, $_SESSION['user_id'], $note]);
+        }
+        foreach ($activeIds as $learnerId) checkAndAwardBadges($learnerId);
+        $pdo->commit();
+    } catch (Throwable $error) { $pdo->rollBack(); throw $error; }
     $message = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Attendance saved!</div>';
 }
 
 $date = $_GET['date'] ?? $today;
+if (!is_string($date) || !validDate($date)) failRequest(422, 'Choose a valid date.');
 $learners = $pdo->query("SELECT * FROM learners WHERE status = 'active' ORDER BY full_name")->fetchAll();
 
 // Get existing attendance for date
@@ -40,13 +52,14 @@ include '../includes/header.php';
     
     <form method="GET" style="margin-bottom:1.5rem;">
         <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
-            <input type="date" name="date" value="<?php echo $date; ?>" class="form-input" style="width:auto;">
+            <input type="date" name="date" value="<?php echo h($date); ?>" class="form-input" style="width:auto;">
             <button type="submit" class="btn btn-primary"><i class="fas fa-calendar"></i> Select Date</button>
         </div>
     </form>
 
     <form method="POST" action="">
-        <input type="hidden" name="date" value="<?php echo $date; ?>">
+            <?php echo csrfField(); ?>
+        <input type="hidden" name="date" value="<?php echo h($date); ?>">
         <div class="table-responsive">
             <table class="data-table">
                 <thead>
@@ -82,3 +95,4 @@ include '../includes/header.php';
 </div>
 
 <?php include '../includes/footer.php'; ?>
+

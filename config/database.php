@@ -1,11 +1,17 @@
 <?php
-// Uses environment variables when set (Render), falls back to
-// your local Docker Compose values otherwise.
-$host     = getenv('DB_HOST') ?: 'db';
-$dbname   = getenv('DB_NAME') ?: 'ikusasa_bbd';
-$username = getenv('DB_USER') ?: 'bbd_user';
-$password = getenv('DB_PASS') ?: 'bbd_pass123';
+// Render uses Aiven credentials. Local Compose supplies these same variables.
+$host     = getenv('DB_HOST');
+$dbname   = getenv('DB_NAME');
+$username = getenv('DB_USER');
+$password = getenv('DB_PASS');
 $port     = getenv('DB_PORT') ?: '3306';
+
+if (!$host || !$dbname || !$username || !$password || !ctype_digit($port) || (int) $port < 1 || (int) $port > 65535) {
+    error_log('Database configuration is missing or invalid.');
+    http_response_code(503);
+    echo 'The service is temporarily unavailable.';
+    exit(1);
+}
 
 $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
 
@@ -17,8 +23,14 @@ $options = [
 // Aiven requires SSL. The CA certificate is bundled into the project
 // at config/aiven-ca.pem, and used automatically when DB_HOST points
 // at an aivencloud.com address.
-if (strpos($host, 'aivencloud.com') !== false) {
-    $caPath = __DIR__ . '/aiven-ca.pem';
+if (str_ends_with(strtolower($host), '.aivencloud.com') || getenv('DB_SSL_CA')) {
+    $caPath = getenv('DB_SSL_CA') ?: __DIR__ . '/aiven-ca.pem';
+    if (!is_readable($caPath)) {
+        error_log('Database CA certificate is missing.');
+        http_response_code(503);
+        echo 'The service is temporarily unavailable.';
+    exit(1);
+    }
     $options[PDO::MYSQL_ATTR_SSL_CA] = $caPath;
     $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
 }
@@ -26,6 +38,9 @@ if (strpos($host, 'aivencloud.com') !== false) {
 try {
     $pdo = new PDO($dsn, $username, $password, $options);
 } catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
+    error_log('Database connection failed: ' . $e->getCode());
+    http_response_code(503);
+    echo 'The service is temporarily unavailable.';
+    exit(1);
 }
 ?>
