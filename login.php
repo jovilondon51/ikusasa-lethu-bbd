@@ -49,12 +49,13 @@ include 'includes/header.php';
             <form method="POST" action="">
             <?php echo csrfField(); ?>
                 <div class="form-group">
-                    <label class="form-label">Username</label>
-                    <input type="text" name="username" class="form-input" required autofocus>
+                    <label class="form-label" for="username">Username</label>
+                    <input id="username" type="text" name="username" class="form-input" autocomplete="username" required autofocus>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <input type="password" name="password" class="form-input" required>
+                    <label class="form-label" for="password">Password</label>
+                    <input id="password" type="password" name="password" class="form-input" autocomplete="current-password" required>
+                    <button type="button" class="btn btn-sm btn-secondary" data-password-toggle="password" aria-controls="password" aria-pressed="false" style="margin-top:0.5rem;">Show password</button>
                 </div>
                 <button type="submit" class="btn btn-success" style="width:100%; justify-content:center;">
                     <i class="fas fa-sign-in-alt"></i> Login
