@@ -2,22 +2,19 @@
 require_once '../includes/functions.php';
 requireAdmin();
 
-// Handle request
-if (isset($_GET['approve']) && is_numeric($_GET['approve'])) {
-    $pdo->prepare("UPDATE password_change_requests SET status = 'approved', handled_by = ?, handled_at = NOW() WHERE id = ?")->execute([$_SESSION['user_id'], $_GET['approve']]);
-    // Also allow the learner to change password
-    $req = $pdo->prepare("SELECT learner_id FROM password_change_requests WHERE id = ?");
-    $req->execute([$_GET['approve']]);
-    $learnerId = $req->fetchColumn();
-    $pdo->prepare("UPDATE learners SET can_change_password = 1 WHERE id = ?")->execute([$learnerId]);
-    header('Location: password_requests.php');
-    exit;
-}
-
-if (isset($_GET['reject']) && is_numeric($_GET['reject'])) {
-    $pdo->prepare("UPDATE password_change_requests SET status = 'rejected', handled_by = ?, handled_at = NOW() WHERE id = ?")->execute([$_SESSION['user_id'], $_GET['reject']]);
-    header('Location: password_requests.php');
-    exit;
+if (isset($_POST['approve']) || isset($_POST['reject'])) {
+    $id = filter_var($_POST['approve'] ?? $_POST['reject'], FILTER_VALIDATE_INT);
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM password_change_requests WHERE id = ? AND status = 'pending' FOR UPDATE");
+        $stmt->execute([$id]); $request = $stmt->fetch();
+        if (!$request) throw new InvalidArgumentException('This request is no longer pending.');
+        $status = isset($_POST['approve']) ? 'approved' : 'rejected';
+        $pdo->prepare('UPDATE password_change_requests SET status = ?, handled_by = ?, handled_at = NOW() WHERE id = ?')->execute([$status, $_SESSION['user_id'], $id]);
+        if ($status === 'approved') $pdo->prepare('UPDATE learners SET can_change_password = 1 WHERE id = ?')->execute([$request['learner_id']]);
+        $pdo->commit();
+    } catch (Throwable $error) { $pdo->rollBack(); throw $error; }
+    header('Location: password_requests.php'); exit;
 }
 
 $requests = $pdo->query("SELECT pcr.*, l.full_name as learner_name, l.username, a.full_name as handler_name
@@ -54,8 +51,8 @@ include '../includes/header.php';
                     <td><?php echo htmlspecialchars($req['handler_name'] ?? '-'); ?></td>
                     <td>
                         <?php if ($req['status'] === 'pending'): ?>
-                        <a href="?approve=<?php echo $req['id']; ?>" class="btn btn-sm btn-success"><i class="fas fa-check"></i></a>
-                        <a href="?reject=<?php echo $req['id']; ?>" class="btn btn-sm btn-danger"><i class="fas fa-times"></i></a>
+                        <form method="POST" style="display:inline;"><?php echo csrfField(); ?><input type="hidden" name="approve" value="<?php echo $req['id']; ?>"><button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check"></i></button></form>
+                        <form method="POST" style="display:inline;"><?php echo csrfField(); ?><input type="hidden" name="reject" value="<?php echo $req['id']; ?>"><button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-times"></i></button></form>
                         <?php endif; ?>
                     </td>
                 </tr>

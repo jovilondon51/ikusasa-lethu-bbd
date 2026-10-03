@@ -54,10 +54,12 @@ $basePath = (strpos($scriptPath, '/admin/') !== false || strpos($scriptPath, '/l
                 <li><a href="<?php echo $basePath; ?>learner/profile.php" class="<?php echo $activePage === 'profile' ? 'active' : ''; ?>">
                     <i class="fas fa-user"></i> Profile</a></li>
             <?php endif; ?>
-            <li class="logout"><a href="<?php echo $basePath; ?>logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            <li><a href="<?php echo $basePath; ?><?php echo isAdmin() ? 'admin' : 'learner'; ?>/community.php" class="<?php echo $activePage === 'community' ? 'active' : ''; ?>"><i class="fas fa-comments"></i> Community</a></li>
+            <li class="logout"><form method="POST" action="<?php echo $basePath; ?>logout.php"><?php echo csrfField(); ?><button class="btn btn-danger" type="submit"><i class="fas fa-sign-out-alt"></i> Logout</button></form></li>
         </ul>
     </nav>
     <main class="main-content">
     <?php else: ?>
     <main class="auth-main">
     <?php endif; ?>
+

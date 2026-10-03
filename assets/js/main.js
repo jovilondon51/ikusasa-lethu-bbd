@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
             body.setAttribute('data-theme', next);
             localStorage.setItem('theme', next);
             updateThemeIcon(next);
+            document.dispatchEvent(new CustomEvent('themechange', { detail: next }));
         });
     }
 
@@ -87,37 +88,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Auto-refresh community messages every 10 seconds
-function initCommunityRefresh() {
+    // Refresh only the message list, leaving an unfinished message form intact.
     const messageList = document.querySelector('.message-list');
-    if (!messageList) return;
-    
-    const isAdmin = document.querySelector('.nav-links a[href*="admin/dashboard"]') !== null;
-    const refreshUrl = isAdmin ? '' : '';
-    
-    // Simple polling - reload page if new messages detected (simplified)
-    // For a smoother experience, we'll just add a visual indicator
-    setInterval(() => {
-        const indicator = document.getElementById('refreshIndicator');
-        if (indicator) {
-            indicator.style.display = 'inline';
-            setTimeout(() => indicator.style.display = 'none', 2000);
-        }
-    }, 10000);
-}
-
-// Add refresh indicator to community pages
-document.addEventListener('DOMContentLoaded', () => {
-    initCommunityRefresh();
-    
-    // Add live indicator to community header
-    const communityHeader = document.querySelector('.card-header h2.card-title');
-    if (communityHeader && communityHeader.textContent.includes('Community')) {
-        const liveBadge = document.createElement('span');
-        liveBadge.id = 'refreshIndicator';
-        liveBadge.innerHTML = ' <span class="badge badge-success" style="font-size:0.7rem; animation:pulse 2s infinite;"><i class="fas fa-circle" style="font-size:0.4rem;"></i> LIVE</span>';
-        liveBadge.style.display = 'none';
-        communityHeader.appendChild(liveBadge);
+    if (messageList) {
+        let refreshing = false;
+        setInterval(async () => {
+            if (refreshing || document.hidden) return;
+            refreshing = true;
+            try {
+                const response = await fetch(location.pathname, { cache: 'no-store' });
+                if (!response.ok || new URL(response.url).pathname !== location.pathname) return;
+                const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+                const replacement = page.querySelector('.message-list');
+                if (replacement) {
+                    messageList.replaceChildren(...replacement.childNodes);
+                    messageList.querySelectorAll('[data-confirm]').forEach(button => {
+                        button.addEventListener('click', event => { if (!confirm(button.dataset.confirm)) event.preventDefault(); });
+                    });
+                }
+            } catch (_) { /* Keep the current messages on a temporary connection failure. */ }
+            finally { refreshing = false; }
+        }, 10000);
     }
-});
 });

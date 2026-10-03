@@ -1,0 +1,14 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+uploads
+ikusasa-storage
+db_data
+*.sql
+!database/schema.sql
+*.log
+tests
+.vscode
+.idea

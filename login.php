@@ -2,8 +2,15 @@
 require_once 'includes/functions.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
+    $username = $_POST['username'] ?? '';
+    if (!is_string($username)) failRequest(422, 'Invalid login details.');
+    $username = trim($username);
     $password = $_POST['password'] ?? '';
+    if (!is_string($username) || !is_string($password) || strlen($username) > 100 || strlen($password) > 1024) failRequest(422, 'Invalid login details.');
+    if (loginIsLimited('learner', $username)) {
+        header('Retry-After: 900');
+        failRequest(429, 'Too many login attempts. Please try again in 15 minutes.');
+    }
     
     // Only check learners
     $stmt = $pdo->prepare("SELECT * FROM learners WHERE username = ? AND status = 'active'");
@@ -11,14 +18,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $learner = $stmt->fetch();
     
     if ($learner && password_verify($password, $learner['password_hash'])) {
-        $_SESSION['user_id'] = $learner['id'];
-        $_SESSION['user_type'] = 'learner';
-        $_SESSION['user_name'] = $learner['full_name'];
+        loginSession($learner, 'learner');
+        clearAccountLoginFailures('learner', $username);
         logLogin($learner['id'], 'learner');
         header('Location: learner/dashboard.php');
         exit;
     }
     
+    recordLoginFailure('learner', $username);
     $error = "Invalid username or password";
 }
 
@@ -40,6 +47,7 @@ include 'includes/header.php';
             <?php endif; ?>
             
             <form method="POST" action="">
+            <?php echo csrfField(); ?>
                 <div class="form-group">
                     <label class="form-label">Username</label>
                     <input type="text" name="username" class="form-input" required autofocus>

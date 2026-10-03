@@ -4,6 +4,8 @@ requireAdmin();
 
 $month = $_GET['month'] ?? date('Y-m');
 $learnerId = $_GET['learner'] ?? null;
+if (!is_string($month) || !validDate($month, 'Y-m')) failRequest(422, 'Choose a valid month.');
+if ($learnerId !== null && $learnerId !== '' && !filter_var($learnerId, FILTER_VALIDATE_INT)) failRequest(422, 'Choose a valid learner.');
 
 // Get all active learners
 $learners = $pdo->query("SELECT * FROM learners WHERE status = 'active' ORDER BY full_name")->fetchAll();
@@ -54,7 +56,7 @@ include '../includes/header.php';
     
     <div style="display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; align-items:center;">
         <form method="GET" style="display:flex; gap:0.5rem; align-items:center;">
-            <input type="month" name="month" value="<?php echo $month; ?>" class="form-input" style="width:auto;">
+            <input type="month" name="month" value="<?php echo h($month); ?>" class="form-input" style="width:auto;">
             <select name="learner" class="form-select" style="width:auto;">
                 <option value="">All Learners</option>
                 <?php foreach ($learners as $l): ?>
@@ -73,9 +75,9 @@ include '../includes/header.php';
     </div>
     
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-        <a href="?month=<?php echo $prevMonth; ?>&learner=<?php echo $learnerId; ?>" class="btn btn-sm btn-primary"><i class="fas fa-chevron-left"></i> Prev</a>
+        <a href="?month=<?php echo $prevMonth; ?>&learner=<?php echo h($learnerId); ?>" class="btn btn-sm btn-primary"><i class="fas fa-chevron-left"></i> Prev</a>
         <h3 style="font-weight:600;"><?php echo date('F Y', strtotime($startDate)); ?></h3>
-        <a href="?month=<?php echo $nextMonth; ?>&learner=<?php echo $learnerId; ?>" class="btn btn-sm btn-primary">Next <i class="fas fa-chevron-right"></i></a>
+        <a href="?month=<?php echo $nextMonth; ?>&learner=<?php echo h($learnerId); ?>" class="btn btn-sm btn-primary">Next <i class="fas fa-chevron-right"></i></a>
     </div>
     
     <div class="calendar-grid" style="display:grid; grid-template-columns:repeat(7, 1fr); gap:0.5rem; text-align:center; font-weight:600; margin-bottom:0.5rem; color:var(--text-muted);">
@@ -103,7 +105,7 @@ include '../includes/header.php';
                     $status = $dayAttendance[0]['status'] ?? 'absent';
                     $color = $status === 'present' ? 'var(--secondary)' : ($status === 'late' ? 'var(--warning)' : 'var(--danger)');
                     ?>
-                    <span class="badge" style="background:<?php echo $color; ?>20; color:<?php echo $color; ?>; font-size:0.7rem;">
+                    <span class="badge" style="background:var(--bg); color:<?php echo $color; ?>; font-size:0.7rem;">
                         <?php echo ucfirst($status); ?>
                     </span>
                 <?php else: ?>
@@ -126,3 +128,4 @@ include '../includes/header.php';
 </div>
 
 <?php include '../includes/footer.php'; ?>
+

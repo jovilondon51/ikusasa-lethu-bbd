@@ -4,30 +4,20 @@ requireLearner();
 
 $learnerId = $_SESSION['user_id'];
 
-// Mark as accessed / in progress
-if (isset($_GET['view']) && is_numeric($_GET['view'])) {
-    $contentId = $_GET['view'];
-    $stmt = $pdo->prepare("INSERT INTO content_progress (learner_id, content_id, progress_percent, last_accessed) 
-                           VALUES (?, ?, 0, NOW()) 
-                           ON DUPLICATE KEY UPDATE last_accessed = NOW()");
-    $stmt->execute([$learnerId, $contentId]);
-    
-    // Mark complete
+$contentId = $_GET['view'] ?? null;
+if ($contentId !== null) {
+    if (!filter_var($contentId, FILTER_VALIDATE_INT)) failRequest(404, 'Content not found.');
+    $exists = $pdo->prepare("SELECT id FROM learning_content WHERE id = ? AND status = 'active'");
+    $exists->execute([$contentId]);
+    if (!$exists->fetch()) failRequest(404, 'Content not found.');
+    $pdo->prepare('INSERT INTO content_progress (learner_id, content_id, progress_percent, last_accessed) VALUES (?, ?, 0, NOW()) ON DUPLICATE KEY UPDATE last_accessed = NOW()')->execute([$learnerId, $contentId]);
     if (isset($_POST['mark_complete'])) {
-    $stmt = $pdo->prepare("UPDATE content_progress SET progress_percent = 100, completed = 1 WHERE learner_id = ? AND content_id = ?");
-    $stmt->execute([$learnerId, $contentId]);
-    checkAndAwardBadges($learnerId); // Award badges if earned
-    header('Location: content.php');
-    exit;
+        $pdo->prepare('UPDATE content_progress SET progress_percent = 100, completed = 1 WHERE learner_id = ? AND content_id = ?')->execute([$learnerId, $contentId]);
+        checkAndAwardBadges($learnerId); header('Location: content.php'); exit;
+    }
 }
-}
-
-$contentItems = $pdo->query("SELECT lc.*, 
-    (SELECT completed FROM content_progress WHERE learner_id = $learnerId AND content_id = lc.id) as is_completed,
-    (SELECT progress_percent FROM content_progress WHERE learner_id = $learnerId AND content_id = lc.id) as progress
-    FROM learning_content lc 
-    WHERE lc.status = 'active' 
-    ORDER BY lc.created_at DESC")->fetchAll();
+$stmt = $pdo->prepare("SELECT lc.*, cp.completed AS is_completed, cp.progress_percent AS progress FROM learning_content lc LEFT JOIN content_progress cp ON cp.content_id = lc.id AND cp.learner_id = ? WHERE lc.status = 'active' ORDER BY lc.created_at DESC");
+$stmt->execute([$learnerId]); $contentItems = $stmt->fetchAll();
 
 $viewing = isset($_GET['view']) ? array_filter($contentItems, fn($c) => $c['id'] == $_GET['view']) : null;
 $viewing = $viewing ? array_values($viewing)[0] : null;
@@ -51,11 +41,11 @@ include '../includes/header.php';
         <?php if ($viewing['content_type'] === 'text'): ?>
             <div style="line-height:1.8;"><?php echo nl2br(htmlspecialchars($viewing['content_text'])); ?></div>
         <?php elseif ($viewing['content_type'] === 'link'): ?>
-            <a href="<?php echo htmlspecialchars($viewing['content_text']); ?>" target="_blank" class="btn btn-primary">
+            <a href="<?php echo h(filter_var($viewing['content_text'], FILTER_VALIDATE_URL) && in_array(strtolower(parse_url($viewing['content_text'], PHP_URL_SCHEME) ?? ''), ['https', 'http'], true) ? $viewing['content_text'] : '#'); ?>" rel="noopener noreferrer" target="_blank" class="btn btn-primary">
                 <i class="fas fa-external-link-alt"></i> Open Link
             </a>
         <?php elseif ($viewing['file_path']): ?>
-            <a href="/<?php echo $viewing['file_path']; ?>" target="_blank" class="btn btn-primary">
+            <a href="<?php echo h(fileUrl($viewing['file_path'], true)); ?>" target="_blank" class="btn btn-primary">
                 <i class="fas fa-download"></i> Download / View File
             </a>
         <?php endif; ?>
@@ -71,7 +61,8 @@ include '../includes/header.php';
         <?php if ($viewing['is_completed']): ?>
             <span class="badge badge-success"><i class="fas fa-check-circle"></i> Completed</span>
         <?php else: ?>
-            <form method="POST" action="?view=<?php echo $viewing['id']; ?>" style="display:inline;">
+            <form method="POST" action="?view=<?php echo (int) $viewing['id']; ?>" style="display:inline;">
+                <?php echo csrfField(); ?>
                 <button type="submit" name="mark_complete" class="btn btn-success">
                     <i class="fas fa-check"></i> Mark as Complete
                 </button>

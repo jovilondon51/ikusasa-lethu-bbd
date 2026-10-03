@@ -18,3 +18,14 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local credentials and test output
+.env
+.env.*
+!.env.example
+ikusasa-storage/
+.test-storage/
+.test-data/
+
+__pycache__/
+*.pyc

@@ -6,11 +6,12 @@ $message = '';
 
 // Add learner
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $fullName = trim($_POST['full_name']);
-    $email = trim($_POST['email']);
-    $username = trim($_POST['username']);
-    $password = $_POST['password'];
-    $grade = trim($_POST['grade']);
+    $fullName = requireText('full_name', 150);
+    $email = requireText('email', 254);
+    $username = requireText('username', 100);
+    $password = $_POST['password'] ?? '';
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !is_string($password) || !validPassword($password)) failRequest(422, 'Enter a valid email and a password between 12 and 72 bytes.');
+    $grade = requireText('grade', 50);
     
     $hash = password_hash($password, PASSWORD_DEFAULT);
     $stmt = $pdo->prepare("INSERT INTO learners (full_name, email, username, password_hash, grade, created_by) VALUES (?, ?, ?, ?, ?, ?)");
@@ -18,22 +19,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmt->execute([$fullName, $email, $username, $hash, $grade, $_SESSION['user_id']]);
         $message = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Learner added successfully!</div>';
     } catch (PDOException $e) {
+        if (($e->errorInfo[1] ?? null) !== 1062) throw $e;
         $message = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Error: Username or email already exists</div>';
     }
 }
 
 // Remove learner
-if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
+if (isset($_POST['delete']) && is_numeric($_POST['delete'])) {
+    revokeAccount('learner', (int) $_POST['delete']);
     $stmt = $pdo->prepare("DELETE FROM learners WHERE id = ?");
-    $stmt->execute([$_GET['delete']]);
+    $stmt->execute([$_POST['delete']]);
     header('Location: learners.php');
     exit;
 }
 
 // Toggle status
-if (isset($_GET['toggle']) && is_numeric($_GET['toggle'])) {
+if (isset($_POST['toggle']) && is_numeric($_POST['toggle'])) {
+    revokeAccount('learner', (int) $_POST['toggle']);
     $stmt = $pdo->prepare("UPDATE learners SET status = IF(status='active','inactive','active') WHERE id = ?");
-    $stmt->execute([$_GET['toggle']]);
+    $stmt->execute([$_POST['toggle']]);
     header('Location: learners.php');
     exit;
 }
@@ -83,12 +87,12 @@ include '../includes/header.php';
                     </td>
                     <td><?php echo htmlspecialchars($learner['admin_name']); ?></td>
                     <td>
-                        <a href="?toggle=<?php echo $learner['id']; ?>" class="btn btn-sm btn-warning" title="Toggle Status">
+                        <form method="POST" style="display:inline;"><?php echo csrfField(); ?><input type="hidden" name="toggle" value="<?php echo $learner['id']; ?>"><button type="submit" class="btn btn-sm btn-warning" title="Toggle Status">
                             <i class="fas fa-toggle-on"></i>
-                        </a>
-                        <a href="?delete=<?php echo $learner['id']; ?>" class="btn btn-sm btn-danger" data-confirm="Are you sure?" title="Delete">
+                        </button></form>
+                        <form method="POST" style="display:inline;"><?php echo csrfField(); ?><input type="hidden" name="delete" value="<?php echo $learner['id']; ?>"><button type="submit" class="btn btn-sm btn-danger" data-confirm="Are you sure?" title="Delete">
                             <i class="fas fa-trash"></i>
-                        </a>
+                        </button></form>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -108,6 +112,7 @@ include '../includes/header.php';
             <button class="modal-close" onclick="closeModal('addLearnerModal')">&times;</button>
         </div>
         <form method="POST" action="">
+            <?php echo csrfField(); ?>
             <input type="hidden" name="action" value="add">
             <div class="form-group">
                 <label class="form-label">Full Name</label>
@@ -123,7 +128,7 @@ include '../includes/header.php';
             </div>
             <div class="form-group">
                 <label class="form-label">Password</label>
-                <input type="password" name="password" class="form-input" required>
+                <input minlength="12" maxlength="72" type="password" name="password" class="form-input" required>
             </div>
             <div class="form-group">
                 <label class="form-label">Grade/Level</label>

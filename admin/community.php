@@ -11,13 +11,13 @@ if (isset($_POST['toggle_mode'])) {
 }
 
 // Approve/reject message
-if (isset($_GET['approve']) && is_numeric($_GET['approve'])) {
-    $pdo->prepare("UPDATE community_messages SET status = 'approved' WHERE id = ?")->execute([$_GET['approve']]);
+if (isset($_POST['approve']) && is_numeric($_POST['approve'])) {
+    $pdo->prepare("UPDATE community_messages SET status = 'approved' WHERE id = ?")->execute([$_POST['approve']]);
     header('Location: community.php');
     exit;
 }
-if (isset($_GET['reject']) && is_numeric($_GET['reject'])) {
-    $pdo->prepare("UPDATE community_messages SET status = 'rejected' WHERE id = ?")->execute([$_GET['reject']]);
+if (isset($_POST['reject']) && is_numeric($_POST['reject'])) {
+    $pdo->prepare("UPDATE community_messages SET status = 'rejected' WHERE id = ?")->execute([$_POST['reject']]);
     header('Location: community.php');
     exit;
 }
@@ -25,7 +25,7 @@ if (isset($_GET['reject']) && is_numeric($_GET['reject'])) {
 // Admin post message
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['admin_message'])) {
     $stmt = $pdo->prepare("INSERT INTO community_messages (sender_id, sender_type, message, status) VALUES (?, 'admin', ?, 'approved')");
-    $stmt->execute([$_SESSION['user_id'], trim($_POST['message'])]);
+    $stmt->execute([$_SESSION['user_id'], requireText('message', 5000)]);
     header('Location: community.php');
     exit;
 }
@@ -48,6 +48,7 @@ include '../includes/header.php';
     <div class="card-header">
         <h2 class="card-title"><i class="fas fa-comments"></i> Community Moderation</h2>
         <form method="POST" style="display:inline;">
+            <?php echo csrfField(); ?>
             <button type="submit" name="toggle_mode" class="btn btn-<?php echo $communityMode === 'everyone' ? 'warning' : 'primary'; ?>">
                 <i class="fas fa-toggle-<?php echo $communityMode === 'everyone' ? 'on' : 'off'; ?>"></i>
                 Mode: <?php echo $communityMode === 'everyone' ? 'Everyone Can Post' : 'Admin Only'; ?>
@@ -61,6 +62,7 @@ include '../includes/header.php';
         <h2 class="card-title">Post Announcement</h2>
     </div>
     <form method="POST" action="">
+            <?php echo csrfField(); ?>
         <div class="form-group">
             <textarea name="message" class="form-textarea" placeholder="Write an announcement..." required></textarea>
         </div>
@@ -95,8 +97,8 @@ include '../includes/header.php';
                     <?php echo ucfirst($msg['status']); ?>
                 </span>
                 <?php if ($msg['status'] === 'pending'): ?>
-                <a href="?approve=<?php echo $msg['id']; ?>" class="btn btn-sm btn-success"><i class="fas fa-check"></i> Approve</a>
-                <a href="?reject=<?php echo $msg['id']; ?>" class="btn btn-sm btn-danger"><i class="fas fa-times"></i> Reject</a>
+                <form method="POST" style="display:inline;"><?php echo csrfField(); ?><input type="hidden" name="approve" value="<?php echo $msg['id']; ?>"><button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check"></i> Approve</button></form>
+                <form method="POST" style="display:inline;"><?php echo csrfField(); ?><input type="hidden" name="reject" value="<?php echo $msg['id']; ?>"><button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-times"></i> Reject</button></form>
                 <?php endif; ?>
             </div>
         </div>

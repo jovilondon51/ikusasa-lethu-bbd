@@ -1,0 +1,71 @@
+name: Application checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  php-and-http:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-root-password
+          MYSQL_DATABASE: ikusasa_test
+          MYSQL_USER: ikusasa_test
+          MYSQL_PASSWORD: test-only-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h127.0.0.1"
+          --health-interval=5s --health-timeout=3s --health-retries=20
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_NAME: ikusasa_test
+      DB_USER: ikusasa_test
+      DB_PASS: test-only-password
+      TEST_DATABASE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: pdo_mysql, zip, dom, fileinfo
+          coverage: none
+      - name: Check syntax
+        run: |
+          find . -name '*.php' -not -path './.git/*' -exec php -l {} \;
+          node --check assets/js/main.js
+          node --check assets/js/projects.js
+          sh -n docker/start.sh
+          node tests/projects.js
+      - name: Security and preview regressions
+        run: php tests/security.php
+      - name: Browser preview-isolation regressions
+        run: |
+          npm install --prefix /tmp/ikusasa-playwright playwright@1.62.1
+          /tmp/ikusasa-playwright/node_modules/.bin/playwright install --with-deps chromium
+          NODE_PATH=/tmp/ikusasa-playwright/node_modules node tests/preview-browser.js
+      - name: Initialise disposable MySQL schema
+        run: mysql -h127.0.0.1 -P3306 -uikusasa_test -ptest-only-password ikusasa_test < database/schema.sql
+      - name: HTTP and database regressions
+        run: python3 tests/integration.py
+      - name: Build deployment image
+        run: docker build -t ikusasa-test .
+      - name: Check deployment startup and Apache restrictions
+        run: |
+          docker run -d --name ikusasa-deployment-test --add-host host.docker.internal:host-gateway -p 127.0.0.1:18081:8080 -e DB_HOST=host.docker.internal -e DB_PORT=3306 -e DB_NAME=ikusasa_test -e DB_USER=ikusasa_test -e DB_PASS=test-only-password ikusasa-test
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18081/health.php; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:18081/health.php
+          for path in config/database.php includes/functions.php scripts/create-admin.php database/schema.sql Dockerfile .env; do
+            status=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:18081/$path")
+            case "$status" in 403|404) ;; *) echo "Private path exposed: $path ($status)"; exit 1;; esac
+          done
+      - name: Deployment logs
+        if: failure()
+        run: docker logs ikusasa-deployment-test || true

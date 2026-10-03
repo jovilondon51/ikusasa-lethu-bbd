@@ -6,29 +6,32 @@ $message = '';
 
 // Add content
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $title = trim($_POST['title']);
-    $description = trim($_POST['description']);
-    $contentType = $_POST['content_type'];
-    $contentText = trim($_POST['content_text'] ?? '');
-    
-    $filePath = null;
-    if (isset($_FILES['file']) && $_FILES['file']['error'] === 0) {
-        $uploadDir = '../uploads/content/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
-        $fileName = time() . '_' . basename($_FILES['file']['name']);
-        move_uploaded_file($_FILES['file']['tmp_name'], $uploadDir . $fileName);
-        $filePath = 'uploads/content/' . $fileName;
-    }
-    
-    $stmt = $pdo->prepare("INSERT INTO learning_content (title, description, content_type, content_text, file_path, created_by) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$title, $description, $contentType, $contentText, $filePath, $_SESSION['user_id']]);
-    $message = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Content uploaded!</div>';
+    $title = requireText('title', 200);
+    $description = requireText('description', 5000, false);
+    $contentType = requireText('content_type', 20);
+    $contentText = requireText('content_text', 100000, false);
+    if (!in_array($contentType, ['text', 'video', 'pdf', 'document', 'link'], true)) failRequest(422, 'Choose a valid content type.');
+    if ($contentType === 'link' && (!filter_var($contentText, FILTER_VALIDATE_URL) || !in_array(strtolower(parse_url($contentText, PHP_URL_SCHEME) ?? ''), ['http', 'https'], true))) failRequest(422, 'Links must start with https:// or http://.');
+    $upload = null;
+    try {
+        if (isset($_FILES['file']) && $_FILES['file']['error'] !== UPLOAD_ERR_NO_FILE) $upload = storeUpload($_FILES['file'], 'content');
+        $stmt = $pdo->prepare('INSERT INTO learning_content (title, description, content_type, content_text, file_path, created_by) VALUES (?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$title, $description, $contentType, $contentText, $upload['file_path'] ?? null, $_SESSION['user_id']]);
+    } catch (Throwable $error) { if ($upload) removeStored($upload['cleanup_key']); throw $error; }
+    flash('Content uploaded.'); header('Location: content.php'); exit;
 }
 
 // Delete content
-if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
-    $stmt = $pdo->prepare("DELETE FROM learning_content WHERE id = ?");
-    $stmt->execute([$_GET['delete']]);
+if (isset($_POST['delete']) && is_numeric($_POST['delete'])) {
+    $file = $pdo->prepare('SELECT file_path FROM learning_content WHERE id = ?');
+    $file->execute([$_POST['delete']]); $filePath = $file->fetchColumn();
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('DELETE FROM content_progress WHERE content_id = ?')->execute([$_POST['delete']]);
+        $pdo->prepare('DELETE FROM learning_content WHERE id = ?')->execute([$_POST['delete']]);
+        $pdo->commit();
+    } catch (Throwable $error) { $pdo->rollBack(); throw $error; }
+    if ($filePath) removeStored($filePath);
     header('Location: content.php');
     exit;
 }
@@ -50,7 +53,7 @@ include '../includes/header.php';
             <i class="fas fa-upload"></i> Upload Content
         </button>
     </div>
-    <?php echo $message; ?>
+    <?php echo renderFlash(); echo $message; ?>
     <div class="table-responsive">
         <table class="data-table">
             <thead>
@@ -64,9 +67,9 @@ include '../includes/header.php';
                     <td><?php echo htmlspecialchars($item['admin_name']); ?></td>
                     <td><?php echo date('M d, Y', strtotime($item['created_at'])); ?></td>
                     <td>
-                        <a href="?delete=<?php echo $item['id']; ?>" class="btn btn-sm btn-danger" data-confirm="Delete this content?">
+                        <form method="POST" style="display:inline;"><?php echo csrfField(); ?><input type="hidden" name="delete" value="<?php echo $item['id']; ?>"><button type="submit" class="btn btn-sm btn-danger" data-confirm="Delete this content?">
                             <i class="fas fa-trash"></i>
-                        </a>
+                        </button></form>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -85,6 +88,7 @@ include '../includes/header.php';
             <button class="modal-close" onclick="closeModal('addContentModal')">&times;</button>
         </div>
         <form method="POST" action="" enctype="multipart/form-data">
+            <?php echo csrfField(); ?>
             <input type="hidden" name="action" value="add">
             <div class="form-group">
                 <label class="form-label">Title</label>
