@@ -2,6 +2,10 @@
 
 PHP application for learner projects, attendance, learning content, badges and moderated community messages.
 
+All admins can edit learner names, emails, usernames, grades and account status from **Learners > Edit**. Editing an account keeps its password and learning records; status changes revoke existing learner sessions. Learner profiles show their current attendance streak using the same recorded-class calculation as streak badges.
+
+Login password visibility controls use a separate versioned script, so an old cached main script or unavailable browser theme storage does not disable Show/Hide password.
+
 ## Render + existing Aiven database
 
 This release is intended for the existing Render service at https://ikusasa-lethu-bbd.onrender.com and its Aiven MySQL database. Deployment remains manual. The code does not import a schema or alter the Aiven database on startup.

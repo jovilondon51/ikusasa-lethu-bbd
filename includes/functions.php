@@ -98,6 +98,22 @@ function getUnreadLoginCount() {
     return $stmt->fetchColumn();
 }
 
+function getAttendanceStreak(int $learnerId): int {
+    global $pdo;
+    // Count recorded classes, not calendar days. Future and missing attendance do not add to a streak.
+    $sessions = $pdo->prepare("SELECT sessions.attendance_date, COALESCE(a.status, 'absent') AS status
+        FROM (SELECT DISTINCT attendance_date FROM attendance WHERE attendance_date <= CURDATE()) sessions
+        LEFT JOIN attendance a ON a.attendance_date = sessions.attendance_date AND a.learner_id = ?
+        ORDER BY sessions.attendance_date DESC");
+    $sessions->execute([$learnerId]);
+    $streak = 0;
+    while ($session = $sessions->fetch()) {
+        if ($session['status'] !== 'present') break;
+        $streak++;
+    }
+    return $streak;
+}
+
 function checkAndAwardBadges($learnerId) {
     global $pdo;
     
@@ -114,17 +130,7 @@ function checkAndAwardBadges($learnerId) {
     $attendanceCount->execute([$learnerId]);
     $attendance = $attendanceCount->fetchColumn();
 
-    // A missed recorded session breaks the streak. Unrecorded dates are not counted.
-    $sessions = $pdo->prepare("SELECT sessions.attendance_date, COALESCE(a.status, 'absent') AS status
-        FROM (SELECT DISTINCT attendance_date FROM attendance WHERE attendance_date <= CURDATE()) sessions
-        LEFT JOIN attendance a ON a.attendance_date = sessions.attendance_date AND a.learner_id = ?
-        ORDER BY sessions.attendance_date DESC");
-    $sessions->execute([$learnerId]);
-    $streak = 0;
-    foreach ($sessions->fetchAll() as $session) {
-        if ($session['status'] !== 'present') break;
-        $streak++;
-    }
+    $streak = getAttendanceStreak((int) $learnerId);
     
     // Get all badges
     $badges = $pdo->query("SELECT * FROM badges")->fetchAll();
