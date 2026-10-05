@@ -35,6 +35,12 @@ function csrfField(): string {
 function validateCsrf(): void {
     $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (!is_string($token) || !hash_equals(csrfToken(), $token)) {
+        // An old logout form needs a fresh confirmation, never an automatic logout.
+        // Resolve the actual endpoint, so other POST actions retain their 403 response.
+        if (!wantsJson() && realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === realpath(__DIR__ . '/../logout.php')) {
+            header('Location: /logout.php?confirm=1', true, 303);
+            exit;
+        }
         failRequest(403, 'Your form expired. Reload the page and try again.');
     }
 }
