@@ -1,20 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('[data-password-toggle]').forEach(button => {
-        const input = document.getElementById(button.dataset.passwordToggle);
-        if (!input) return;
-        button.addEventListener('click', () => {
-            const visible = input.type === 'password';
-            input.type = visible ? 'text' : 'password';
-            button.textContent = visible ? 'Hide password' : 'Show password';
-            button.setAttribute('aria-pressed', String(visible));
-        });
-        input.form?.addEventListener('submit', () => {
-            input.type = 'password';
-            button.textContent = 'Show password';
-            button.setAttribute('aria-pressed', 'false');
-        });
-    });
-
     // Mobile sidebar toggle
     const menuToggle = document.getElementById('menuToggle');
     const sidebar = document.querySelector('.sidebar');

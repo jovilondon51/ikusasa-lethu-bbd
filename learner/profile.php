@@ -48,6 +48,7 @@ $badges = $pdo->prepare("SELECT b.*, lb.earned_at FROM badges b
     WHERE lb.learner_id = ? ORDER BY lb.earned_at DESC");
 $badges->execute([$learnerId]);
 $badges = $badges->fetchAll();
+$attendanceStreak = getAttendanceStreak((int) $learnerId);
 
 $pageTitle = "My Profile";
 $activePage = "profile";
@@ -85,6 +86,13 @@ include '../includes/header.php';
         </div>
     </div>
     
+    <div style="border-top:1px solid var(--border); padding:1.5rem 0;">
+        <h3><i class="fas fa-fire" aria-hidden="true" style="color:var(--warning);"></i> Attendance streak</h3>
+        <p style="margin:0.75rem 0; font-size:1.5rem;"><strong data-attendance-streak="<?php echo $attendanceStreak; ?>"><?php echo $attendanceStreak; ?></strong> <?php echo $attendanceStreak === 1 ? 'session' : 'sessions'; ?> in a row</p>
+        <p><?php echo $attendanceStreak > 0 ? 'Keep it going! Attend your next class to grow your streak.' : 'Your next class is a fresh start. Attend it to start your streak!'; ?></p>
+        <p style="margin-top:0.5rem; color:var(--text-muted); font-size:0.9rem;">Your streak counts consecutive recorded classes marked present. An absent, late or missing attendance mark breaks the streak.</p>
+    </div>
+
     <?php if (!empty($badges)): ?>
     <div style="border-top:1px solid var(--border); padding-top:1.5rem; margin-bottom:1.5rem;">
         <h3 style="margin-bottom:1rem;"><i class="fas fa-medal"></i> My Badges</h3>

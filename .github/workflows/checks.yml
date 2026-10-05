@@ -39,6 +39,8 @@ jobs:
           find . -name '*.php' -not -path './.git/*' -exec php -l {} \;
           node --check assets/js/main.js
           node --check assets/js/projects.js
+          node --check assets/js/passwords.js
+          node --check tests/login-browser.js
           sh -n docker/start.sh
           node tests/projects.js
       - name: Security and preview regressions
@@ -51,7 +53,7 @@ jobs:
       - name: Initialise disposable MySQL schema
         run: mysql -h127.0.0.1 -P3306 -uikusasa_test -ptest-only-password ikusasa_test < database/schema.sql
       - name: HTTP and database regressions
-        run: python3 tests/integration.py
+        run: NODE_PATH=/tmp/ikusasa-playwright/node_modules python3 tests/integration.py
       - name: Build deployment image
         run: docker build -t ikusasa-test .
       - name: Check deployment startup and Apache restrictions

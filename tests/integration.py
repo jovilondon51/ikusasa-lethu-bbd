@@ -82,6 +82,7 @@ try:
             if guest.request('/health.php')[0] == 200: break
         except OSError: time.sleep(.1)
     check(guest.request('/health.php')[0] == 200, 'Database and storage health check succeeds')
+    subprocess.run(['node', str(ROOT / 'tests/login-browser.js')], env=dict(env, TEST_BASE_URL=BASE), check=True)
     check(guest.request('/file.php?path=uploads/projects/anything.html')[0] == 401, 'Downloads require authentication')
     check(guest.request('/admin/dashboard.php')[0] == 302, 'Admin page requires login')
     check(guest.request('/login.php', {'username': 'test_learner', 'password': 'Test-only-pass123'})[0] == 403, 'Login rejects missing CSRF token')
@@ -94,6 +95,36 @@ try:
             parser = FormParser(); parser.feed(page)
             check(parser.current is None and all(not form['post'] or form['csrf'] for form in parser.forms), 'Every POST form contains a valid token: ' + path)
     check(learner.request('/admin/dashboard.php')[0] == 302, 'Learners cannot access admin pages')
+    check('data-attendance-streak="0"' in learner.request('/learner/profile.php')[1], 'Missing past attendance and future marks do not create a streak')
+    for client in [admin, otheradmin]:
+        status, page, _ = client.request('/admin/learners.php?edit=1')
+        check(status == 200 and 'value="Test Learner"' in page and 'value="test_learner"' in page, 'Every admin can open the learner edit form')
+        parser = FormParser(); parser.feed(page)
+        check(all(not form['post'] or form['csrf'] for form in parser.forms), 'Learner edit form has CSRF protection')
+    edit = {'action': 'edit', 'learner_id': '1', 'full_name': 'Updated Learner', 'email': 'updated@example.invalid', 'username': 'updated_learner', 'grade': 'Grade 12', 'status': 'active'}
+    check(otheradmin.request('/admin/learners.php', edit)[0] == 403, 'Learner editing rejects missing CSRF token')
+    check(learner.request('/admin/learners.php', dict(edit, csrf_token=learner.token('/learner/profile.php')))[0] == 302, 'A learner cannot use the admin editing action')
+    edit['csrf_token'] = otheradmin.token('/admin/learners.php?edit=1')
+    check(otheradmin.request('/admin/learners.php', edit)[0] == 302, 'Admin who did not create the learner can save edits')
+    updated = learner.request('/learner/profile.php')[1]
+    check(all(value in updated for value in ['Updated Learner', 'updated@example.invalid', 'updated_learner', 'Grade 12']), 'Edited details are persisted and visible on the learner profile')
+    updated_login = Client(); updated_login.login('updated_learner')
+    check(updated_login.request('/learner/dashboard.php')[0] == 200, 'Changing username keeps the existing password valid')
+    for key, value in [('email', 'other@example.invalid'), ('username', 'other_learner')]:
+        status, page, _ = otheradmin.request('/admin/learners.php', dict(edit, **{key: value}))
+        check(status == 200 and 'already used by another learner' in page and 'value="Updated Learner"' in page, 'Duplicate learner details show an error and preserve the edit form')
+        check('updated@example.invalid' in learner.request('/learner/profile.php')[1], 'Duplicate edit leaves existing information unchanged')
+    for key, value in [('email', 'invalid'), ('status', 'unknown'), ('full_name', ''), ('username', 'x' * 101), ('grade', '')]:
+        check(otheradmin.request('/admin/learners.php', dict(edit, **{key: value}))[0] == 422, 'Invalid learner edit is rejected: ' + key)
+    check(otheradmin.request('/admin/learners.php', dict(edit, learner_id='99999'))[0] == 404, 'Editing a missing learner is rejected')
+    check(admin.request('/admin/learners.php?edit=invalid')[0] == 422, 'Invalid edit ID is rejected')
+    check(otheradmin.request('/admin/learners.php', dict(edit, status='inactive'))[0] == 302, 'Admin can deactivate learner in edit form')
+    check(updated_login.request('/learner/dashboard.php')[0] == 302, 'Deactivation through edit form revokes learner access')
+    check(otheradmin.request('/admin/learners.php', edit)[0] == 302, 'Admin can reactivate learner in edit form')
+    check(updated_login.request('/learner/dashboard.php')[0] == 302, 'Reactivation does not restore the revoked session')
+    restore = dict(edit, full_name='Test Learner', email='learner@example.invalid', username='test_learner', grade='10', csrf_token=admin.token('/admin/learners.php?edit=1'))
+    check(admin.request('/admin/learners.php', restore)[0] == 302, 'Another admin can update the same learner')
+    learner.login('test_learner')
     check('0/1' in learner.request('/learner/dashboard.php')[1], 'Inactive completed lessons are excluded from progress')
     check('/community.php' in learner.request('/learner/dashboard.php')[1], 'Community appears in navigation')
     token = learner.token('/learner/projects.php')
@@ -153,9 +184,15 @@ try:
         fields_attendance = {'csrf_token': attendance_token, 'mark_attendance': '', 'date': str(date.today() - timedelta(days=days)), 'attendance[1]': attendance, 'attendance[2]': 'present'}
         check(admin.request('/admin/attendance.php', fields_attendance)[0] == 200, 'Attendance is recorded')
     check('Three consecutive sessions' not in learner.request('/learner/profile.php')[1], 'A missed session breaks the badge streak')
+    check('data-attendance-streak="1"' in learner.request('/learner/profile.php')[1], 'Profile displays one consecutive attended session')
     for days in [14, 0]:
         check(admin.request('/admin/attendance.php', {'csrf_token': attendance_token, 'mark_attendance': '', 'date': str(date.today() - timedelta(days=days)), 'attendance[1]': 'present', 'attendance[2]': 'present'})[0] == 200, 'Streak attendance update succeeds')
     check('Three consecutive sessions' in learner.request('/learner/profile.php')[1], 'Attendance save awards a consecutive-session badge')
+    check('data-attendance-streak="4"' in learner.request('/learner/profile.php')[1], 'Profile displays four consecutive recorded sessions')
+    today_fields = {'csrf_token': attendance_token, 'mark_attendance': '', 'date': str(date.today()), 'attendance[1]': 'late', 'attendance[2]': 'present'}
+    check(admin.request('/admin/attendance.php', today_fields)[0] == 200, 'Late attendance is recorded')
+    check('data-attendance-streak="0"' in learner.request('/learner/profile.php')[1], 'Late attendance resets the displayed streak')
+    check(admin.request('/admin/attendance.php', dict(today_fields, **{'attendance[1]': 'present'}))[0] == 200, 'Present attendance restores the streak')
     account_token = admin.token('/admin/learners.php')
     check(admin.request('/admin/learners.php?toggle=1')[0] == 200, 'GET cannot toggle an account')
     check(learner.request('/learner/dashboard.php')[0] == 200, 'Account remains active after GET')

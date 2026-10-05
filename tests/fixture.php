@@ -11,6 +11,8 @@ $stmt->execute(['Other Admin', 'otheradmin@example.invalid', 'other_admin', $pas
 $stmt = $pdo->prepare('INSERT INTO learners (full_name, email, username, password_hash, grade, created_by) VALUES (?, ?, ?, ?, ?, 1)');
 $stmt->execute(['Test Learner', 'learner@example.invalid', 'test_learner', $password, '10']);
 $stmt->execute(['Other Learner', 'other@example.invalid', 'other_learner', $password, '11']);
+// A missing past mark breaks a streak; future marks must never count.
+$pdo->exec("INSERT INTO attendance (learner_id, attendance_date, status, marked_by) VALUES (2, DATE_SUB(CURDATE(), INTERVAL 28 DAY), 'present', 1), (1, DATE_ADD(CURDATE(), INTERVAL 7 DAY), 'present', 1), (2, DATE_ADD(CURDATE(), INTERVAL 7 DAY), 'present', 1)");
 $pdo->exec("INSERT INTO learning_content (title, description, content_type, content_text, status, created_by) VALUES ('Active lesson', 'Active', 'text', 'Hello', 'active', 1), ('Inactive lesson', 'Inactive', 'text', 'Old', 'inactive', 1)");
 $pdo->exec('INSERT INTO content_progress (learner_id, content_id, completed, progress_percent) VALUES (1, 2, 1, 100)');
 $pdo->exec("INSERT INTO settings VALUES ('community_mode', 'everyone')");
